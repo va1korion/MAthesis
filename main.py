@@ -18,7 +18,7 @@ mod, params = relay.frontend.from_pytorch(model, [input_ids], shape_dict)
 
 # Apply quantization (INT8 example)
 with tvm.transform.PassContext(opt_level=3):
-    quantized_mod = relay.transform.quantize.quantize(
+    quantized_mod = relay.transform.quantize(
         mod, params
     )
 
