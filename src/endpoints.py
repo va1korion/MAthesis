@@ -1,8 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from pydantic import BaseModel
-
+from src.generate import Generator
+from src.storage import vectorise_dir
 
 ml_models = {}
 
@@ -10,22 +9,17 @@ ml_models = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
-    MODEL_NAME = "yandex/YandexGPT-5-Lite-8B-instruct"
+    Gen = Generator()
+    vectorise_dir("../data")
+    yield
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        device_map="cuda",
-        torch_dtype="auto",
-    )
 
 app = FastAPI(lifespan=lifespan)
 
 
-
 @app.get("/question")
-async def predict(x: float):
-    result = ml_models["answer_to_everything"](x)
+async def predict():
+    result = ml_models["answer_to_everything"]
     return {"result": result}
 
 

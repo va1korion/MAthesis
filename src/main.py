@@ -1,5 +1,6 @@
 from endpoints import *
 import uvicorn
+from loguru import logger
 
 
 

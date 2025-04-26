@@ -1,34 +1,34 @@
 import os
 from langchain_core.embeddings import Embeddings
 from sentence_transformers import SentenceTransformer
-from langchain_community.document_loaders import PDFMinerLoader
+from langchain_community.document_loaders import PDFMinerLoader, PyPDFLoader
 from langchain_core.documents import Document
 from typing import List
 from loguru import logger
 from langchain_chroma import Chroma
 
+
+def parse_doc(filepath) -> [Document]:
+    loader = PDFMinerLoader(
+        file_path=filepath,
+        mode="single",
+    )
+    return loader.load()
+
+
 def parse_docs(directory: str) -> List[Document]:
     result = []
-
+    exceptions = set()
     for filename in os.listdir(directory):
         logger.info(f"Parsing {filename}")
         if filename.endswith(".pdf"):
-            loader = PDFMinerLoader(
-                file_path=f"{directory}/{filename}",
-                # headers = None
-                # password = None,
-                mode="single",
-            )
-            for chunk in loader.load():
-                result.append(chunk)
-
+            try:
+                result.append(parse_doc(f"{directory}/{filename}"))
+            except Exception as e:
+                logger.error(f"Failed to parse {filename}: {e}")
+                exceptions.add(e)
+    logger.info(f"Got {len(exceptions)} exceptions: {exceptions}")
     return result
-
-
-def vectorise_dir(directory: str):
-    docs = parse_docs(directory)
-    vector_store.add_documents(documents=docs)
-
 
 
 class USEREmbeddings(Embeddings):
@@ -44,11 +44,6 @@ class USEREmbeddings(Embeddings):
 
 embeddings=USEREmbeddings()
 
-vector_store = Chroma(
-    collection_name="documents",
-    embedding_function=embeddings,
-    persist_directory="../chroma_langchain_db",  # Where to save data locally, remove if not necessary
-)
 
 if __name__ == "__main__":
-    print(parse_docs("../data"))
+    print(parse_doc("../data/630.pdf"))

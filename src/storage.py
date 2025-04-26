@@ -1,12 +1,21 @@
-import bs4
 from langchain import hub
 from langchain_community.document_loaders import WebBaseLoader, PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings.yandex import YandexGPTEmbeddings
-
-from langgraph.graph import START, StateGraph
+from pydantic import BaseModel
 from typing_extensions import List, TypedDict
+from preprocessing import embeddings, Chroma, parse_docs
+
+vector_store = Chroma(
+    collection_name="documents",
+    embedding_function=embeddings,
+    persist_directory="../chroma_langchain_db",  # Where to save data locally, remove if not necessary
+)
+
+def vectorise_dir(directory: str):
+    docs = parse_docs(directory)
+    vector_store.add_documents(documents=docs)
+
 
 # Load and chunk contents of the blog
 loader = PyPDFLoader()
@@ -23,7 +32,7 @@ prompt = hub.pull("rlm/rag-prompt")
 
 
 # Define state for application
-class State(TypedDict):
+class State(BaseModel):
     question: str
     context: List[Document]
     answer: str
