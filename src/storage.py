@@ -4,7 +4,8 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel
 from typing_extensions import List, TypedDict
-from preprocessing import embeddings, Chroma, parse_docs
+from preprocessing import embeddings, Chroma, parse_docs, parse_doc
+from loguru import logger
 
 vector_store = Chroma(
     collection_name="documents",
@@ -14,32 +15,23 @@ vector_store = Chroma(
 
 def vectorise_dir(directory: str):
     docs = parse_docs(directory)
-    vector_store.add_documents(documents=docs)
+    logger.info(f"Parsed all docs: {len(docs)}")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    all_splits = text_splitter.split_documents(docs)
+    logger.info(f"Split all docs! Len: {len(all_splits)}")
 
+    _ = vector_store.add_documents(documents=all_splits)
+    logger.info(f"Added all docs!")
 
-# Load and chunk contents of the blog
-loader = PyPDFLoader()
-docs = loader.load()
-
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-all_splits = text_splitter.split_documents(docs)
-
-# Index chunks
-_ = vector_store.add_documents(documents=all_splits)
-
-# Define prompt for question-answering
-prompt = hub.pull("rlm/rag-prompt")
-
-
-# Define state for application
-class State(BaseModel):
-    question: str
-    context: List[Document]
-    answer: str
+def vectorise_doc(directory: str):
+    parse_doc(directory)
 
 
 # Define application steps
-def retrieve(state: State):
-    retrieved_docs = vector_store.similarity_search(state["question"])
-    return {"context": retrieved_docs}
+def retrieve(question: str) -> [Document]:
+    retrieved_docs = vector_store.similarity_search(question)
+    return retrieved_docs
 
+if __name__ == "__main__":
+    vectorise_dir("../example_data")
+    print(retrieve("Что изучается в этой дисциплине"))

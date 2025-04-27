@@ -23,7 +23,7 @@ def parse_docs(directory: str) -> List[Document]:
         logger.info(f"Parsing {filename}")
         if filename.endswith(".pdf"):
             try:
-                result.append(parse_doc(f"{directory}/{filename}"))
+                result += parse_doc(f"{directory}/{filename}")
             except Exception as e:
                 logger.error(f"Failed to parse {filename}: {e}")
                 exceptions.add(e)
@@ -39,7 +39,7 @@ class USEREmbeddings(Embeddings):
         return [self.model.encode(t).tolist() for t in texts]
 
     def embed_query(self, query: str) -> List[float]:
-        return self.model.encode([query]).tolist()
+        return self.model.encode(query).tolist()
 
 
 embeddings=USEREmbeddings()

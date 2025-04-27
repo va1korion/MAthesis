@@ -12,7 +12,7 @@ COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt --no-cache-dir
 COPY * .
 COPY . /app/
-
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
 
 CMD ["python", "main.py"]
