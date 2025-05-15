@@ -21,9 +21,9 @@ class Generator:
     async def generate(self, context: list[Document], question: str) -> str:
         docs_content = "\n\n".join(doc.page_content for doc in context)
         generation_time = time.time()
-        messages = [{"role": "user", "content": f"Ты ассистент студенческого офиса университета ИТМО, ты должен отвечать на вопросы исходя из контекста, представленного ниже. Если контекст не содержит ответа на вопрос, ответь что данных нет, не пытайся придумать ответ"
+        messages = [{"role": "user", "content": f"Ты ассистент студенческого офиса Университета. Ты должен отвечать на вопросы исходя из контекста, представленного ниже. Если контекст не содержит ответа на вопрос, ответь, что данных нет, не пытайся придумать ответ и не выходи за рамки контекста. "
                                                 f"Контекст: {docs_content}"
-                                                f"Вопрос: {question}"}]
+                                                f"Вопрос: {question} Ответ:"}]
         input_ids = self.tokenizer.apply_chat_template(
             messages, tokenize=True, return_tensors="pt"
         ).to("cuda")

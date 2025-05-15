@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "accelerate>=1.6.0",
+    "authlib",
     "blobfile>=3.0.0",
     "chromadb>=0.6.3",
     "fastapi>=0.115.12",
@@ -15,6 +16,7 @@ dependencies = [
     "langchain-openai>=0.3.14",
     "langchain-text-splitters>=0.3.8",
     "langgraph>=0.3.31",
+    "llama-cpp-python",
     "loguru>=0.7.3",
     "pdfminer-six>=20250416",
     "pdfplumber",

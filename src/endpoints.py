@@ -1,7 +1,7 @@
 import os
 import shutil
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, Request
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
@@ -11,6 +11,23 @@ from storage import vectorise_dir, retrieve
 from loguru import logger
 from fastapi.security import OAuth2PasswordBearer
 import hmac
+from starlette.responses import RedirectResponse
+
+try:
+    from authlib.integrations.starlette_client import OAuth
+
+    oauth = OAuth()
+    oauth.register(
+        name='itmo',
+        client_id=os.getenv('ITMO_CLIENT_ID'),
+        client_secret=os.getenv('ITMO_CLIENT_SECRET'),
+        server_metadata_url='https://id.itmo.ru/.well-known/openid-configuration',
+        client_kwargs={
+            'scope': 'openid profile email',
+        }
+    )
+except ImportError:
+    logger.info('OAuth 2.0 required')
 
 
 
@@ -65,6 +82,20 @@ security = HTTPBasic()
 settings = Settings()
 
 
+@app.get('/login')
+async def login(request: Request):
+    redirect_uri = 'https://yourapp.com/auth'
+    return await oauth.itmo.authorize_redirect(request, redirect_uri)
+
+@app.get('/auth')
+async def auth(request: Request):
+    token = await oauth.itmo.authorize_access_token(request)
+    user = await oauth.itmo.parse_id_token(request, token)
+    # Сохраните информацию о пользователе в сессии или базе данных
+    return RedirectResponse(url='/')
+
+
+
 # Verify credentials securely with timing-attack resistant comparison
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
     username_match = hmac.compare_digest(credentials.username.encode('utf-8'),
@@ -78,6 +109,8 @@ def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
             headers={"WWW-Authenticate": "Basic"},
         )
     return credentials.username
+
+
 
 
 @app.post("/upload/")
