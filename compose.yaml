@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  llama-server:
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    container_name: llama-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+    command: >
+      --model /models/YandexGPT_GGUF/yandexgpt-5-lite-8b-instruct-q4_k_m.gguf
+      --n-gpu-layers 32
+      --port 8000
+      --temperature 0.7
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+
+  fastapi-app:
+    build: .
+    container_name: fastapi-app
+    ports:
+      - "8080:80"
+    depends_on:
+      - llama-server
+    environment:
+      - LLAMA_SERVER_URL=http://llama-server:8000
+      - ITMO_CLIENT_ID=${ITMO_CLIENT_ID}
+      - ITMO_CLIENT_SECRET=${ITMO_CLIENT_SECRET}
+    volumes:
+      - ./data:/app/data
+      - ./chroma_langchain_db:/app/chroma_langchain_db
