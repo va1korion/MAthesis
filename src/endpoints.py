@@ -28,7 +28,7 @@ from authlib.integrations.starlette_client import OAuth, OAuthError
 async def lifespan(app: FastAPI):
     # Load the ML model
     logger.info("Starting lifespan")
-    vectorise_dir("../example_data")
+    vectorise_dir("../data")
     logger.info("App is running")
     yield
     logger.info("App has been stopped")
