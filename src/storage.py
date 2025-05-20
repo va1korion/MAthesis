@@ -33,5 +33,5 @@ def retrieve(question: str) -> [Document]:
     return retrieved_docs
 
 if __name__ == "__main__":
-    vectorise_dir("../example_data")
+    vectorise_dir("../data")
     print(retrieve("Что изучается в этой дисциплине"))

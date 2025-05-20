@@ -1,6 +1,7 @@
 import os
 import shutil
 from contextlib import asynccontextmanager
+from http.client import HTTPResponse
 from fastapi import FastAPI, UploadFile, Request
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -12,22 +13,14 @@ from loguru import logger
 from fastapi.security import OAuth2PasswordBearer
 import hmac
 from starlette.responses import RedirectResponse
+import json
+from fastapi import FastAPI
+from starlette.config import Config
+from starlette.requests import Request
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import HTMLResponse, RedirectResponse
+from authlib.integrations.starlette_client import OAuth, OAuthError
 
-try:
-    from authlib.integrations.starlette_client import OAuth
-
-    oauth = OAuth()
-    oauth.register(
-        name='itmo',
-        client_id=os.getenv('ITMO_CLIENT_ID'),
-        client_secret=os.getenv('ITMO_CLIENT_SECRET'),
-        server_metadata_url='https://id.itmo.ru/.well-known/openid-configuration',
-        client_kwargs={
-            'scope': 'openid profile email',
-        }
-    )
-except ImportError:
-    logger.info('OAuth 2.0 required')
 
 
 
@@ -44,8 +37,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="front"), name="static")
 app.mount("/downloads", StaticFiles(directory="../data"), name="downloads")
+app.add_middleware(SessionMiddleware, secret_key="!secret")
 
+try:
+    logger.info('Trying to register ITMO.ID')
+    config = Config('.env')
+    oauth = OAuth(config)
 
+    CONF_URL = 'https://id.itmo.ru/auth/realms/itmo/.well-known/openid-configuration'
+    oauth.register(
+        name='itmo',
+        server_metadata_url=CONF_URL,
+        client_id=os.getenv('ITMO_CLIENT_ID'),
+        client_secret=os.getenv('ITMO_CLIENT_SECRET'),
+        client_kwargs={
+            'scope': 'openid email profile'
+        }
+    )
+except Exception as e:
+    logger.warning('Oauth registration failed: {e} \n'
+                   'OAuth 2.0 required')
 
 @app.get("/question")
 async def predict(question: str):
@@ -68,57 +79,37 @@ async def predict(state: State):
 async def upload_document(document: UploadFile):
     pass
 
-
-# Configuration class using environment variables
-class Settings(BaseModel):
-    admin_username: str = os.getenv("APP_ADMIN_USER")
-    admin_password: str = os.getenv("APP_ADMIN_PASSWORD")
-
-    class Config:
-        env_file = ".env"
-
-
-security = HTTPBasic()
-settings = Settings()
-
-
-@app.get('/login')
-async def login(request: Request):
-    redirect_uri = 'https://yourapp.com/auth'
-    return await oauth.itmo.authorize_redirect(request, redirect_uri)
+@app.get('/auth')
+async def auth(request: Request):
+    try:
+        token = await oauth.itmo.authorize_access_token(request)
+    except OAuthError as error:
+        return HTMLResponse(f'<h1>{error.error}</h1>')
+    user = token.get('userinfo')
+    if user:
+        request.session['user'] = dict(user)
+    return RedirectResponse(url='/')
 
 @app.get('/auth')
 async def auth(request: Request):
-    token = await oauth.itmo.authorize_access_token(request)
-    user = await oauth.itmo.parse_id_token(request, token)
-    # Сохраните информацию о пользователе в сессии или базе данных
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError as error:
+        return HTMLResponse(f'<h1>{error.error}</h1>')
+    user = token.get('userinfo')
+    if user:
+        request.session['user'] = dict(user)
     return RedirectResponse(url='/')
 
 
-
-# Verify credentials securely with timing-attack resistant comparison
-def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
-    username_match = hmac.compare_digest(credentials.username.encode('utf-8'),
-                                         settings.admin_username.encode('utf-8'))
-    password_match = hmac.compare_digest(credentials.password.encode('utf-8'),
-                                         settings.admin_password.encode('utf-8'))
-    if not (username_match and password_match):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
-
-
-
-
 @app.post("/upload/")
-async def upload_file(
-        username: str = Depends(verify_admin),
-        file: UploadFile = File(...)
-):
+async def upload_file(request: Request, file: UploadFile = File(...)):
     # Validate file contents here
+    user = request.session.get('user')
+    if not user:
+        data = json.dumps(user)
+        return RedirectResponse(url='/auth')
+
     try:
         contents = await file.read()
         # Process file contents
@@ -128,7 +119,7 @@ async def upload_file(
         return {
             "filename": file.filename,
             "size": len(contents),
-            "uploader": username
+            "uploader": user.get('username', "authenticated"),
         }
     except Exception as e:
         raise HTTPException(

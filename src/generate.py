@@ -6,48 +6,44 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 from pydantic import BaseModel
 from storage import vectorise_dir, retrieve
 from loguru import logger
+import httpx
+import logging
+from typing import List
+import os
 
-class Generator:
-    MODEL_NAME = "yandex/YandexGPT-5-Lite-8B-instruct"
+class LLMClient:
+    def __init__(self, server_url: str = os.getenv("LLAMA_SERVER_URL", "http://llama-server:8000")):
+        self.server_url = server_url
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        device_map="cuda",
-        torch_dtype="auto",
-    )
-
-
-    async def generate(self, context: list[Document], question: str) -> str:
+    async def generate(self, context: List[Document], question: str) -> str:
         docs_content = "\n\n".join(doc.page_content for doc in context)
+
+        prompt = (
+            "Ты ассистент студенческого офиса Университета. "
+            "Ты должен отвечать на вопросы исходя из контекста, представленного ниже. "
+            "Если контекст не содержит ответа на вопрос, ответь, что данных нет, не пытайся придумать ответ и не выходи за рамки контекста. "
+            f"\n\nКонтекст:\n{docs_content}\n\nВопрос: {question}\nОтвет:"
+        )
+
+        payload = {
+            "prompt": prompt,
+            "n_predict": 16384,
+            "stream": False
+        }
+
         generation_time = time.time()
-        messages = [{"role": "user", "content": f"Ты ассистент студенческого офиса Университета. Ты должен отвечать на вопросы исходя из контекста, представленного ниже. Если контекст не содержит ответа на вопрос, ответь, что данных нет, не пытайся придумать ответ и не выходи за рамки контекста. "
-                                                f"Контекст: {docs_content}"
-                                                f"Вопрос: {question} Ответ:"}]
-        input_ids = self.tokenizer.apply_chat_template(
-            messages, tokenize=True, return_tensors="pt"
-        ).to("cuda")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{self.server_url}/completion", json=payload)
+            response.raise_for_status()
+            result = response.json()
 
-        outputs = self.model.generate(input_ids, max_new_tokens=4096)
-        generation_time = time.time() - generation_time
-        logger.info(f"Generated {outputs.shape[1] - input_ids.shape[1]} tokens in {generation_time} seconds")
-        return self.tokenizer.decode(outputs[0][input_ids.size(1):], skip_special_tokens=True)
+        elapsed = time.time() - generation_time
+        generated_text = result.get("content", "Данных нет").strip()
+        logger.info(f"Generated {len(generated_text.split())} words in {elapsed:.2f} seconds")
+        return generated_text
 
 
-    async def generate_plain(self, question: str, context: str, system_prompt: str) -> str:
-        messages = [{"role": "user",
-                     "content": f"{system_prompt}"
-                                f"Контекст: {context}"
-                                f"Вопрос: {question}"}]
-        input_ids = self.tokenizer.apply_chat_template(
-            messages, tokenize=True, return_tensors="pt"
-        ).to("cuda")
-
-        outputs = self.model.generate(input_ids, max_new_tokens=4096)
-        return self.tokenizer.decode(outputs[0][input_ids.size(1):], skip_special_tokens=True)
-
-
-generator = Generator()
+generator = LLMClient()
 
 if __name__ == "__main__":
     # vectorise_dir("../example_data")

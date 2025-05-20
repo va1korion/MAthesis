@@ -17,3 +17,4 @@ data
 models
 chroma
 chroma_langchain_db
+caches
