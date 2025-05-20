@@ -35,5 +35,5 @@ services:
         - ITMO_CLIENT_SECRET=${ITMO_CLIENT_SECRET}
         - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
       volumes:
-        - ./data:/app/data
-        - ./chroma_langchain_db:/app/chroma_langchain_db
+        - ./data:/data
+        - ./chroma_langchain_db:/chroma_langchain_db

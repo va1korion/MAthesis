@@ -10,6 +10,7 @@ STOPSIGNAL SIGINT
 WORKDIR /app
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt --no-cache-dir
+RUN pip install python-multipart
 COPY * .
 COPY .. /app/
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
