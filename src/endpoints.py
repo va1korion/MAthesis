@@ -55,7 +55,7 @@ try:
         }
     )
 except Exception as e:
-    logger.warning('Oauth registration failed: {e} \n'
+    logger.warning(f'Oauth registration failed: {e} \n'
                    'OAuth 2.0 required')
 
 @app.get("/question")
@@ -78,17 +78,6 @@ async def predict(state: State):
 @app.post("/upload_document")
 async def upload_document(document: UploadFile):
     pass
-
-@app.get('/auth')
-async def auth(request: Request):
-    try:
-        token = await oauth.itmo.authorize_access_token(request)
-    except OAuthError as error:
-        return HTMLResponse(f'<h1>{error.error}</h1>')
-    user = token.get('userinfo')
-    if user:
-        request.session['user'] = dict(user)
-    return RedirectResponse(url='/')
 
 @app.get('/auth')
 async def auth(request: Request):
@@ -128,3 +117,11 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         )
     finally:
         await file.close()
+
+
+@app.delete('/delete/{document_id}')
+async def upload_file(request: Request, document_id: str):
+    user = request.session.get('user')
+    if not user:
+        data = json.dumps(user)
+        return RedirectResponse(url='/auth')

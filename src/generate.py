@@ -33,7 +33,7 @@ class LLMClient:
 
         generation_time = time.time()
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{self.server_url}/completion", json=payload)
+            response = await client.post(f"{self.server_url}/completion", json=payload, timeout=100)
             response.raise_for_status()
             result = response.json()
 

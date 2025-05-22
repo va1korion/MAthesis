@@ -1,6 +1,7 @@
 services:
   llama-server:
-    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    privileged: true
+    image: docker.io/local/llama.cpp:server-cuda
     container_name: llama-server
     ports:
       - "8000:8000"
@@ -14,26 +15,30 @@ services:
       --dry-multiplier 0.8
       --dry-base 1.75
       --ctx-size 32768
+      --n_gpu_layers 32
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VERSION=12.8
   fastapi-app:
-      build: ./src
-      container_name: fastapi-app
-      ports:
+    build: ./src
+    container_name: fastapi-app
+    ports:
         - "8080:8000"
-      depends_on:
+    depends_on:
         - llama-server
-      environment:
+    environment:
         - LLAMA_SERVER_URL=http://llama-server:8000
         - ITMO_CLIENT_ID=${ITMO_CLIENT_ID}
         - ITMO_CLIENT_SECRET=${ITMO_CLIENT_SECRET}
         - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-      volumes:
+    volumes:
         - ./data:/data
         - ./chroma_langchain_db:/chroma_langchain_db

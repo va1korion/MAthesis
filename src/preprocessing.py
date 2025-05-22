@@ -1,5 +1,6 @@
 import os
 from langchain_core.embeddings import Embeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 from langchain_community.document_loaders import PDFMinerLoader, PyPDFLoader
 from langchain_core.documents import Document
@@ -61,4 +62,7 @@ embeddings=USEREmbeddings()
 
 
 if __name__ == "__main__":
-    print(parse_doc("../data/630.pdf"))
+    docs = parse_doc("../data/[1403] Параллельное программирование.pdf")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=500)
+    all_splits = text_splitter.split_documents(docs)
+    print(len(all_splits))
